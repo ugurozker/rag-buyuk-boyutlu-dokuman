@@ -7,8 +7,10 @@ import uvicorn
 import pdfplumber
 from configparser import ConfigParser
 from pymilvus import connections, Collection, utility
-from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain.vectorstores import Milvus
+#from langchain.embeddings import HuggingFaceInstructEmbeddings
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings
+#from langchain.vectorstores import Milvus
+from langchain_community.vectorstores import Milvus
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
 from ibm_watson_machine_learning.foundation_models import Model
