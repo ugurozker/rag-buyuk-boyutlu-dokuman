@@ -1,4 +1,4 @@
-import os,io,time
+import os,io,time,shutil
 import glob
 import pandas as pd
 import numpy as np
@@ -7,10 +7,8 @@ import uvicorn
 import pdfplumber
 from configparser import ConfigParser
 from pymilvus import connections, Collection, utility
-#from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain_community.embeddings import HuggingFaceInstructEmbeddings
-#from langchain.vectorstores import Milvus
-from langchain_community.vectorstores import Milvus
+from langchain.embeddings import HuggingFaceInstructEmbeddings
+from langchain.vectorstores import Milvus
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
 from ibm_watson_machine_learning.foundation_models import Model
@@ -19,9 +17,34 @@ from prompt import prompt_generator
 from sentence_transformers import SentenceTransformer
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from typing import List, Literal , Optional
+from typing import List, Literal , Optional, Dict
 from pydantic import BaseModel, validator
+import deep_search as ds  # Ensure this import matches your actual module
+from typing import List, Dict
 
+def process_and_extract_table(file_path: str):
+    # Initialize the DeepSearchExtraction with the output directory
+    deep_search_extractor = ds.DeepSearchExtraction(output_dir="Output")
+
+    # Process the file
+    deep_search_extractor.process(file_path)
+
+    # Extract the required data
+    extracted_data = deep_search_extractor.extract(extract_tables=True, extract_text=True, visualise_table=True)
+
+    # Extract tables from the extracted data
+    df_table_list = ds.extract_tables(extracted_data)
+
+    # Merge data frames
+    merged_df = pd.DataFrame()
+    for data in df_table_list:
+        merged_df = pd.concat([merged_df, data], ignore_index=True)
+
+    # Convert the data frame to a text representation
+    columns_as_lists = merged_df.fillna("ilgili").to_dict(orient='list')
+    text_representation = "\n".join(",".join(map(str, col)) for col in columns_as_lists.values())
+
+    return text_representation
 
 # ### RAG- using Milvus Vector DB
 
@@ -150,9 +173,9 @@ class ZiraatBankQA:
         )
         return vector_db
 
-    def perform_qa(self, df, query,max_token):
+    def perform_qa(self, df, query,max_token, collection_name):
         context = "\n\n".join(df['paragraph'])
-        prompt = prompt_generator(context, query)
+        prompt = prompt_generator( context, query, collection_name)
         response = self.send_to_watsonxai(prompt,max_token)
         return response, context
 
@@ -160,7 +183,7 @@ class ZiraatBankQA:
         model = CrossEncoder(model_name, max_length=512)
         return model
 
-    def main(self, query, vector_db, model, max_token = 200):
+    def main(self, query, vector_db, model, max_token = 200, collection_name= "general"):
         docs = vector_db.similarity_search_with_score(query, k=12, ef=7)
 
         _docs = pd.DataFrame(
@@ -171,14 +194,25 @@ class ZiraatBankQA:
         _docs['score'] = scores
         df = _docs[:12]
 
-        response, context = self.perform_qa(df, query, max_token)
+        response, context = self.perform_qa(df, query, max_token, collection_name)
+        return response, context
+
+    def table_main(self, query, vector_db, model, collection_name, max_token = 200):
+        docs = vector_db.similarity_search_with_score(query, k=12, ef=7)
+
+        _docs = pd.DataFrame(
+            [(query, doc[0].page_content, doc[0].metadata.get('file'), doc[1]) for doc in docs],
+            columns=['query', 'paragraph', 'document', 'relevent_score']
+        )
+        scores = model.predict(_docs[['query', 'paragraph']].to_numpy())
+        _docs['score'] = scores
+        df = _docs[:12]
+
+        response, context = self.perform_qa(df, query, max_token, collection_name)
         return response, context
 
 app = FastAPI()
-config_path = 'config.ini'
-ziraat_bank_qa = ZiraatBankQA(config_path)
-model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
-ziraat_bank_qa.util_connection()
+
 
 try:
     # Initialize embeddings
@@ -189,10 +223,14 @@ try:
 except Exception as e:
     raise HTTPException(status_code=500, detail=f"HuggingFaceInstructEmbeddings couldn't fetch from HF: {str(e)}")
 
-# Initialize ZiraatBankQA instance
-config_path = 'config.ini'
-ziraat_bank_qa = ZiraatBankQA(config_path)
-ziraat_bank_qa.util_connection()
+try:
+    config_path = 'config.ini'
+    ziraat_bank_qa = ZiraatBankQA(config_path)
+    model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+    ziraat_bank_qa.util_connection()
+except Exception as e:
+    raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
+
 # import uvicorn
 # uvicorn.run(app, host="0.0.0.0", port=8000)
 
@@ -213,8 +251,19 @@ async def upload_pdfs(collection_name: str, files: List[UploadFile]):
     try:
         for file in files:
             if file.content_type == "application/pdf":
-                pdf_content = await file.read()
+                # pdf_content = await file.read()
                 try:
+                    # if deepsearch :
+                    #     # Dosyayı geçici bir dosyaya kaydedin
+                    #     with open(f"/tmp/{file.filename}", "wb") as buffer:
+                    #         shutil.copyfileobj(file.file, buffer)
+
+                    #     # İşleme fonksiyonunu çağırın
+                    #     text = process_and_extract_table(f"/tmp/{file.filename}")
+
+                    #     # Geçici dosyayı silin
+                    #     os.remove(f"/tmp/{file.filename}")
+                    # else:
                     with pdfplumber.open(file.file) as pdf:
                         text = "".join([page.extract_text() for page in pdf.pages])
                 except Exception as e:
@@ -256,7 +305,7 @@ async def upload_pdfs(collection_name: str, files: List[UploadFile]):
 
 class BigRAGRequest(BaseModel):
     query: str
-    max_token: float
+    max_token: int
 
 class BigRAGResponse(BaseModel):
     collection_name: str
@@ -265,18 +314,73 @@ class BigRAGResponse(BaseModel):
 
 @app.post("/perform_big_rag", response_model=BigRAGResponse)
 async def perform_big_rag(rag_request: BigRAGRequest):
-    collection_name = "ziraat_big_pdf"
-    query = rag_request.query
-    vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
-    #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+    try:
+        collection_name = "ziraat_big_pdf"
+        query = rag_request.query
 
-    response, _ = ziraat_bank_qa.main(query, vector_db, model,max_token=int(rag_request.max_token))
-    return BigRAGResponse(collection_name=collection_name,query=query,result=response)
+        # Ensure the vector store is initialized appropriately
+        try:
+            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
+
+        #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+
+        try:
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name , max_token=int(rag_request.max_token))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
+
+        return BigRAGResponse(collection_name=collection_name, query=query, result=response)
+
+    except HTTPException as http_ex:
+        raise http_ex
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+#--------------------------------------------------------------------------------------------------
+
+class RevisedRequest(BaseModel):
+    query: str
+    max_token: int
+
+class RevisedResponse(BaseModel):
+    collection_name: str
+    query : str
+    result: str
+
+@app.post("/perform_revised_rag", response_model=RevisedResponse)
+async def perform_big_rag(rag_request: RevisedRequest):
+    try:
+        collection_name = "ziraat_revized_pdf"
+        query = rag_request.query
+
+        # Ensure the vector store is initialized appropriately
+        try:
+            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
+
+        #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+
+        try:
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name , max_token=int(rag_request.max_token))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
+
+        return RevisedResponse(collection_name=collection_name, query=query, result=response)
+
+    except HTTPException as http_ex:
+        raise http_ex
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 #--------------------------------------------------------------------------------------------------
 
 class ExcelRequest(BaseModel):
     query: str
-    max_token: float
+    max_token: int
 
 class ExcelResponse(BaseModel):
     collection_name: str
@@ -285,19 +389,35 @@ class ExcelResponse(BaseModel):
 
 @app.post("/perform_excel_rag", response_model=ExcelResponse)
 async def perform_excel_rag(rag_request: ExcelRequest):
-    collection_name = "ziraat_excel"
-    query = rag_request.query
-    vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
-    #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+    try:
+        collection_name = "ziraat_excel"
+        query = rag_request.query
 
-    response, _ = ziraat_bank_qa.main(query, vector_db, model,max_token=int(rag_request.max_token))
-    return ExcelResponse(collection_name=collection_name,query=query,result=response)
+        # Ensure the vector store is initialized appropriately
+        try:
+            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
+        #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+
+        try:
+            response, _ = ziraat_bank_qa.main(query, vector_db, model,collection_name=collection_name , max_token=int(rag_request.max_token))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
+
+        return ExcelResponse(collection_name=collection_name, query=query, result=response)
+
+    except HTTPException as http_ex:
+        raise http_ex
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 #--------------------------------------------------------------------------------------------------
 
 class TablePDFRequest(BaseModel):
     query: str
-    max_token: float
+    max_token: int
 
 class TablePDFResponse(BaseModel):
     collection_name: str
@@ -306,20 +426,36 @@ class TablePDFResponse(BaseModel):
 
 @app.post("/perform_table_rag", response_model=TablePDFResponse)
 async def perform_table_rag(rag_request: TablePDFRequest):
-    collection_name = "ziraat_table_pdf"
-    query = rag_request.query
-    vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
-    #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+    try:
+        collection_name = "ziraat_table_pdf"
+        query = rag_request.query
 
-    response, _ = ziraat_bank_qa.main(query, vector_db, model,max_token=int(rag_request.max_token))
-    return TablePDFResponse(collection_name=collection_name,query=query,result=response)
+        # Ensure the vector store is initialized appropriately
+        try:
+            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
+        #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+
+        try:
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name , max_token=int(rag_request.max_token))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
+
+        return TablePDFResponse(collection_name=collection_name, query=query, result=response)
+
+    except HTTPException as http_ex:
+        raise http_ex
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 #--------------------------------------------------------------------------------------------------
 
 class RAGRequest(BaseModel):
     collection_name: str
     query: str
-    max_token: float
+    max_token: int
 
     @validator('collection_name')
     def check_option(cls, v):
@@ -334,13 +470,30 @@ class RAGResponse(BaseModel):
 
 @app.post("/perform_rag", response_model=RAGResponse)
 async def perform_rag(rag_request: RAGRequest):
-    
-    query = rag_request.query
-    vector_db = ziraat_bank_qa.get_vector_store(rag_request.collection_name)  # Assuming vector_db has been initialized appropriately
-    #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
-    response, _ = ziraat_bank_qa.main(query, vector_db, model,max_token=int(rag_request.max_token))
-    return RAGResponse(collection_name=rag_request.collection_name,query=query,result=response)
+    try:
+        query = rag_request.query
+
+        # Ensure the vector store is initialized appropriately
+        try:
+            vector_db = ziraat_bank_qa.get_vector_store(rag_request.collection_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
+
+        #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+
+        try:
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.collection_name, max_token=int(rag_request.max_token))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
+
+        return RAGResponse(collection_name=rag_request.collection_name, query=query, result=response)
+
+    except HTTPException as http_ex:
+        raise http_ex
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 #--------------------------------------------------------------------------------------------------
 
@@ -364,17 +517,20 @@ class BulkRAGResponse(BaseModel):
 @app.post("/perform_bulk_rag", response_model=BulkRAGResponse)
 async def perform_bulk_rag(query: str,
     collection_name: str, files: List[UploadFile]):
-    
     if len(files) > 10:
         raise HTTPException(status_code=400, detail="You can upload a maximum of 10 files at a time.")
 
-    # query = rag_request.query
-    vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
-    #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+    try:
+        vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
+    # model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
-    if files : 
-        for file in files:    
+    bulk_list = []
+
+    if files:
+        for file in files:
             if file.content_type in ["application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]:
                 try:
                     contents = await file.read()
@@ -382,25 +538,67 @@ async def perform_bulk_rag(query: str,
 
                     queries = df.iloc[:, 0].tolist()
 
-                    bulk_list = []
                     for index_query in queries:
-                        response, _ = ziraat_bank_qa.main(index_query, vector_db, model)
-                        bulk_list.append({"query":index_query,"response":response})
+                        try:
+                            response, _ = ziraat_bank_qa.main(index_query, vector_db, model)
+                            bulk_list.append({"query": index_query, "response": response})
+                        except Exception as e:
+                            bulk_list.append({"query": index_query, "response": f"Error processing query: {str(e)}"})
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=f"Error processing Excel file {file.filename}: {str(e)}")
     else:
-        bulk_list, _ = [ziraat_bank_qa.main(query, vector_db, model)]
+        try:
+            responses, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name )
+            bulk_list.append({"query": query, "response": responses})
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing bulk RAG operation: {str(e)}")
 
-    return BulkRAGResponse(collection_name=collection_name,query=query,result_list=bulk_list)
+    return BulkRAGResponse(collection_name=collection_name, query=query, result_list=bulk_list)
+
+#-----------------------------------------------------
+
+@app.get("/collections", response_model=List[str])
+async def get_collections():
+    try:
+        collections = utility.list_collections()
+        return collections
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving collections: {str(e)}")
+
+
+class DropCollectionRequest(BaseModel):
+    collection_name: str
+
+@app.post("/drop_collection")
+async def drop_collection(request: DropCollectionRequest):
+    try:
+        if request.collection_name in ["ziraat_bank","ziraat_bank_large","Ziraat_Col","ziraat_big_pdf","ziraat_excel","ziraat_table_pdf","ziraat_bank_webscrape_index"]:
+            result = request.collection_name + " main collections could not drop"
+            return {"message": result}
+        elif utility.has_collection(request.collection_name):
+            utility.drop_collection(request.collection_name)
+            result = request.collection_name + " dropped successfully"
+            return {"message": result}
+        else:
+            result = request.collection_name + " couldn't drop or already dropped"
+        return {"message": result}
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error dropping collection: {str(e)}")
 
 # Run the app
-#if __name__ == "__main__":
-    # Initialize ZiraatBankQA instance
-    #config_path = 'config.ini'
-    #ziraat_bank_qa = ZiraatBankQA(config_path)
-    #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
-    #ziraat_bank_qa.util_connection()
-    #uvicorn.run(app, host="0.0.0.0", port=8000)
+# if __name__ == "__main__":
+#     # Initialize ZiraatBankQA instance
+#     try:
+#         config_path = 'config.ini'
+#         ziraat_bank_qa = ZiraatBankQA(config_path)
+#         model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+#         ziraat_bank_qa.util_connection()
+#         uvicorn.run(app, host="0.0.0.0", port=8000)
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
 
 
 
