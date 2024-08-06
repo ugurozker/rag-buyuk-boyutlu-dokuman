@@ -183,7 +183,7 @@ class ZiraatBankQA:
         model = CrossEncoder(model_name, max_length=512)
         return model
 
-    def main(self, query, vector_db, model, max_token, collection_name= "general"):
+    def main(self, query, vector_db, model, max_token=200, collection_name= "general"):
         docs = vector_db.similarity_search_with_score(query, k=12, ef=7)
 
         _docs = pd.DataFrame(
@@ -313,7 +313,7 @@ async def perform_big_rag(rag_request: BigRAGRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name , max_token=int(rag_request.max_token))
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, max_token=int(rag_request.max_token), collection_name=collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -351,7 +351,7 @@ async def perform_big_rag(rag_request: RevisedRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name , max_token=int(rag_request.max_token))
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, max_token=int(rag_request.max_token), collection_name=collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -425,7 +425,7 @@ async def perform_table_rag(rag_request: TablePDFRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name , max_token=int(rag_request.max_token))
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, max_token=int(rag_request.max_token), collection_name=collection_name)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -469,7 +469,7 @@ async def perform_rag(rag_request: RAGRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.collection_name, max_token=rag_request.max_token)
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.max_token, rag_request.collection_name)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -574,17 +574,17 @@ async def drop_collection(request: DropCollectionRequest):
         raise HTTPException(status_code=500, detail=f"Error dropping collection: {str(e)}")
 
 # Run the app
-# if __name__ == "__main__":
-#     # Initialize ZiraatBankQA instance
-#     try:
-#         config_path = 'config.ini'
-#         ziraat_bank_qa = ZiraatBankQA(config_path)
-#         model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
-#         ziraat_bank_qa.util_connection()
-#         uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    # Initialize ZiraatBankQA instance
+    try:
+        config_path = 'config.ini'
+        ziraat_bank_qa = ZiraatBankQA(config_path)
+        model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+        ziraat_bank_qa.util_connection()
+        uvicorn.run(app, host="0.0.0.0", port=8000)
 
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
 
 
 
