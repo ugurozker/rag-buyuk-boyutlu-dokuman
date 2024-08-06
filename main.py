@@ -483,7 +483,7 @@ async def perform_rag(rag_request: RAGRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.collection_name, max_token=int(rag_request.max_token))
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.collection_name, max_token=rag_request.max_token)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
