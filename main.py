@@ -327,6 +327,44 @@ async def perform_big_rag(rag_request: BigRAGRequest):
 
 #--------------------------------------------------------------------------------------------------
 
+class RevisedRequest(BaseModel):
+    query: str
+    max_token: int
+
+class RevisedResponse(BaseModel):
+    collection_name: str
+    query : str
+    result: str
+
+@app.post("/perform_revised_rag", response_model=RevisedResponse)
+async def perform_revised_rag(rag_request: RevisedRequest):
+    try:
+        collection_name = "ziraat_revised_pdf"
+        query = rag_request.query
+
+        # Ensure the vector store is initialized appropriately
+        try:
+            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
+
+        #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+
+        try:
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.max_token, collection_name)        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
+
+        return RevisedResponse(collection_name=collection_name, query=query, result=response)
+
+    except HTTPException as http_ex:
+        raise http_ex
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+    
+#--------------------------------------------------------------------------------------------------
+
 class RefereRequest(BaseModel):
     query: str
     max_token: int
@@ -337,7 +375,7 @@ class RefereResponse(BaseModel):
     result: str
 
 @app.post("/perform_refere_rag", response_model=RefereResponse)
-async def perform_big_rag(rag_request: RefereRequest):
+async def perform_refere_rag(rag_request: RefereRequest):
     try:
         collection_name = "ziraat_refere_pdf"
         query = rag_request.query
