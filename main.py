@@ -19,7 +19,7 @@ from langchain.embeddings import HuggingFaceInstructEmbeddings
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from typing import List, Literal , Optional, Dict
 from pydantic import BaseModel, validator
-#import deep_search as ds  # Ensure this import matches your actual module
+# import deep_search as ds  # Ensure this import matches your actual module
 from typing import List, Dict
 
 # def process_and_extract_table(file_path: str):
@@ -599,7 +599,6 @@ async def drop_collection(request: DropCollectionRequest):
 
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
-
 
 
 
