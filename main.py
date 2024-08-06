@@ -183,21 +183,7 @@ class ZiraatBankQA:
         model = CrossEncoder(model_name, max_length=512)
         return model
 
-    def main(self, query, vector_db, model, max_token = 200, collection_name= "general"):
-        docs = vector_db.similarity_search_with_score(query, k=12, ef=7)
-
-        _docs = pd.DataFrame(
-            [(query, doc[0].page_content, doc[0].metadata.get('file'), doc[1]) for doc in docs],
-            columns=['query', 'paragraph', 'document', 'relevent_score']
-        )
-        scores = model.predict(_docs[['query', 'paragraph']].to_numpy())
-        _docs['score'] = scores
-        df = _docs[:12]
-
-        response, context = self.perform_qa(df, query, max_token, collection_name)
-        return response, context
-
-    def table_main(self, query, vector_db, model, collection_name, max_token = 200):
+    def main(self, query, vector_db, model, max_token, collection_name= "general"):
         docs = vector_db.similarity_search_with_score(query, k=12, ef=7)
 
         _docs = pd.DataFrame(
