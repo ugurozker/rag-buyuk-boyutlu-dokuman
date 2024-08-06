@@ -313,7 +313,7 @@ async def perform_big_rag(rag_request: BigRAGRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, max_token=int(rag_request.max_token), collection_name=collection_name)        
+            response, _ = ziraat_bank_qa.main(query, vector_db, model,rag_request.max_token, collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -327,19 +327,19 @@ async def perform_big_rag(rag_request: BigRAGRequest):
 
 #--------------------------------------------------------------------------------------------------
 
-class RevisedRequest(BaseModel):
+class RefereRequest(BaseModel):
     query: str
     max_token: int
 
-class RevisedResponse(BaseModel):
+class RefereResponse(BaseModel):
     collection_name: str
     query : str
     result: str
 
-@app.post("/perform_revised_rag", response_model=RevisedResponse)
-async def perform_big_rag(rag_request: RevisedRequest):
+@app.post("/perform_refere_rag", response_model=RefereResponse)
+async def perform_big_rag(rag_request: RefereRequest):
     try:
-        collection_name = "ziraat_revized_pdf"
+        collection_name = "ziraat_refere_pdf"
         query = rag_request.query
 
         # Ensure the vector store is initialized appropriately
@@ -351,11 +351,11 @@ async def perform_big_rag(rag_request: RevisedRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, max_token=int(rag_request.max_token), collection_name=collection_name)        
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.max_token, collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
-        return RevisedResponse(collection_name=collection_name, query=query, result=response)
+        return RefereResponse(collection_name=collection_name, query=query, result=response)
 
     except HTTPException as http_ex:
         raise http_ex
@@ -388,7 +388,7 @@ async def perform_excel_rag(rag_request: ExcelRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model,collection_name=collection_name , max_token=int(rag_request.max_token))
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.max_token, collection_name)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -425,7 +425,7 @@ async def perform_table_rag(rag_request: TablePDFRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, max_token=int(rag_request.max_token), collection_name=collection_name)
+            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.max_token, collection_name)          
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -534,7 +534,7 @@ async def perform_bulk_rag(query: str,
                     raise HTTPException(status_code=400, detail=f"Error processing Excel file {file.filename}: {str(e)}")
     else:
         try:
-            responses, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name )
+            responses, _ = ziraat_bank_qa.main(query, vector_db, model, collection_name=collection_name)
             bulk_list.append({"query": query, "response": responses})
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing bulk RAG operation: {str(e)}")
