@@ -574,17 +574,17 @@ async def drop_collection(request: DropCollectionRequest):
         raise HTTPException(status_code=500, detail=f"Error dropping collection: {str(e)}")
 
 # Run the app
-if __name__ == "__main__":
-    # Initialize ZiraatBankQA instance
-    try:
-        config_path = 'config.ini'
-        ziraat_bank_qa = ZiraatBankQA(config_path)
-        model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
-        ziraat_bank_qa.util_connection()
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+# if __name__ == "__main__":
+#     # Initialize ZiraatBankQA instance
+#     try:
+#         config_path = 'config.ini'
+#         ziraat_bank_qa = ZiraatBankQA(config_path)
+#         model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
+#         ziraat_bank_qa.util_connection()
+#         uvicorn.run(app, host="0.0.0.0", port=8000)
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
 
 
 
