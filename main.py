@@ -19,32 +19,32 @@ from langchain.embeddings import HuggingFaceInstructEmbeddings
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from typing import List, Literal , Optional, Dict
 from pydantic import BaseModel, validator
-import deep_search as ds  # Ensure this import matches your actual module
+#import deep_search as ds  # Ensure this import matches your actual module
 from typing import List, Dict
 
-def process_and_extract_table(file_path: str):
-    # Initialize the DeepSearchExtraction with the output directory
-    deep_search_extractor = ds.DeepSearchExtraction(output_dir="Output")
+# def process_and_extract_table(file_path: str):
+#     # Initialize the DeepSearchExtraction with the output directory
+#     deep_search_extractor = ds.DeepSearchExtraction(output_dir="Output")
 
-    # Process the file
-    deep_search_extractor.process(file_path)
+#     # Process the file
+#     deep_search_extractor.process(file_path)
 
-    # Extract the required data
-    extracted_data = deep_search_extractor.extract(extract_tables=True, extract_text=True, visualise_table=True)
+#     # Extract the required data
+#     extracted_data = deep_search_extractor.extract(extract_tables=True, extract_text=True, visualise_table=True)
 
-    # Extract tables from the extracted data
-    df_table_list = ds.extract_tables(extracted_data)
+#     # Extract tables from the extracted data
+#     df_table_list = ds.extract_tables(extracted_data)
 
-    # Merge data frames
-    merged_df = pd.DataFrame()
-    for data in df_table_list:
-        merged_df = pd.concat([merged_df, data], ignore_index=True)
+#     # Merge data frames
+#     merged_df = pd.DataFrame()
+#     for data in df_table_list:
+#         merged_df = pd.concat([merged_df, data], ignore_index=True)
 
-    # Convert the data frame to a text representation
-    columns_as_lists = merged_df.fillna("ilgili").to_dict(orient='list')
-    text_representation = "\n".join(",".join(map(str, col)) for col in columns_as_lists.values())
+#     # Convert the data frame to a text representation
+#     columns_as_lists = merged_df.fillna("ilgili").to_dict(orient='list')
+#     text_representation = "\n".join(",".join(map(str, col)) for col in columns_as_lists.values())
 
-    return text_representation
+#     return text_representation
 
 # ### RAG- using Milvus Vector DB
 
