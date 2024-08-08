@@ -11,7 +11,7 @@ def prompt_generator(context, question, collection_name= "general"):
         4. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the documents and user query, and that it is grounded in the context.
         5. Also specify page number and document title from where the answer is generated in a variable called source reference. Sort the documents based on the latest date mentioned on the document and generate the answer.
         6. Don't include additional information apart from the answer and source info. Do not hallucinate and don't form new questions on your own.
-
+        7. Dont give Source Reference. Simple answers are enough do not give source and notes under the answer.
         Context:
 
         {context}
@@ -30,6 +30,8 @@ def prompt_generator(context, question, collection_name= "general"):
         4. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the documents and user query, and that it is grounded in the context.
         5. Also specify page number and document title from where the answer is generated in a variable called source reference. Sort the documents based on the latest date mentioned on the document and generate the answer.
         6. Don't include additional information apart from the answer and source info. Do not hallucinate and don't form new questions on your own.
+        7.Simple answers are enough do not give source and notes under the answer.
+        8. BASARİ ORANİ YUZDE column type is persetage dont forget it.
 
         Context:
 
@@ -49,6 +51,7 @@ def prompt_generator(context, question, collection_name= "general"):
         4. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the documents and user query, and that it is grounded in the context.
         5. Also specify page number and document title from where the answer is generated in a variable called source reference. Sort the documents based on the latest date mentioned on the document and generate the answer.
         6. Don't include additional information apart from the answer and source info. Do not hallucinate and don't form new questions on your own.
+        7. Dont give Source Reference. Simple answers are enough do not give source and notes under the answer.
 
         Context:
 
@@ -71,6 +74,7 @@ def prompt_generator(context, question, collection_name= "general"):
             4. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the documents and user query, and that it is grounded in the context.
             5. Also specify page number and document title from where the answer is generated in a variable called source reference. Sort the documents based on the latest date mentioned on the document and generate the answer.
             6. Don't include additional information apart from the answer and source info. Do not hallucinate and don't form new questions on your own.
+            7. Dont give Source Reference. Simple answers are enough do not give source and notes under the answer.        
         Context:
 
         {context}
@@ -86,8 +90,10 @@ def prompt_generator(context, question, collection_name= "general"):
         2.Ensure the answer is complete, meaningful, precise, and clear, based solely on the provided Turkish documents.
         3.Avoid unnecessary or irrelevant information.
         4.Prioritize correctness in your responses, ensuring they are grounded in the context of the documents and accurately address the user's query.
-        4.Specify the page number and document title as the source reference. Sort documents by the latest date before answering.
-        Include only the answer and source information. Do not add extra information, hallucinate, or create new questions.
+        5.Specify the page number and document title as the source reference. Sort documents by the latest date before answering.
+        6.Dont give Source Reference. Simple answers are enough do not give source and notes under the answer.
+      
+        Include only the answer information. Do not add extra information, hallucinate, or create new questions.
 
         Context:
         {context}
@@ -105,15 +111,11 @@ def prompt_generator(context, question, collection_name= "general"):
         4. When generating responses, prioritize correctness, i.e., ensure that your response is correct given the documents and user query, and that it is grounded in the context.
         5. Also specify page number and document title from where the answer is generated in a variable called source reference. Sort the documents based on the latest date mentioned on the document and generate the answer.
         6. Don't include additional information apart from the answer and source info. Do not hallucinate and don't form new questions on your own.
-
+        7. Dont give Source Reference. Simple answers are enough do not give source and notes under the answer.
+      
         Context:
 
         {context}
-        
-        [YOUR SAMPLE FORMAT.(Don't return this in answer)]
-        Output Format:
-        Answer: <Answer in Turkish>
-        Source info: <source_info>
 
         Question: {question}
 

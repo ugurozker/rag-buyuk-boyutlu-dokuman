@@ -19,34 +19,53 @@ from langchain.embeddings import HuggingFaceInstructEmbeddings
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from typing import List, Literal , Optional, Dict
 from pydantic import BaseModel, validator
-# import deep_search as ds  # Ensure this import matches your actual module
+from deep_search import DeepSearchExtraction,extract_tables
+import deep_search as ds  # Ensure this import matches your actual module
 from typing import List, Dict
+from docx import Document
 
-# def process_and_extract_table(file_path: str):
-#     # Initialize the DeepSearchExtraction with the output directory
-#     deep_search_extractor = ds.DeepSearchExtraction(output_dir="Output")
+def process_and_extract_table(file_path: str):
+    # Initialize the DeepSearchExtraction with the output directory
+    deep_search_extractor = DeepSearchExtraction(output_dir="Output")
 
-#     # Process the file
-#     deep_search_extractor.process(file_path)
+    # Process the file
+    deep_search_extractor.process(file_path)
 
-#     # Extract the required data
-#     extracted_data = deep_search_extractor.extract(extract_tables=True, extract_text=True, visualise_table=True)
+    # Extract the required data
+    extracted_data = deep_search_extractor.extract(extract_tables=True, extract_text=True, visualise_table=True)
 
-#     # Extract tables from the extracted data
-#     df_table_list = ds.extract_tables(extracted_data)
+    # Extract tables from the extracted data
+    df_table_list = extract_tables(extracted_data)
 
-#     # Merge data frames
-#     merged_df = pd.DataFrame()
-#     for data in df_table_list:
-#         merged_df = pd.concat([merged_df, data], ignore_index=True)
+    # Merge data frames
+    merged_df = pd.DataFrame()
+    for data in df_table_list:
+        merged_df = pd.concat([merged_df, data], ignore_index=True)
 
-#     # Convert the data frame to a text representation
-#     columns_as_lists = merged_df.fillna("ilgili").to_dict(orient='list')
-#     text_representation = "\n".join(",".join(map(str, col)) for col in columns_as_lists.values())
+    # Convert the data frame to a text representation
+    columns_as_lists = merged_df.fillna("ilgili").to_dict(orient='list')
+    text_representation = "\n".join(",".join(map(str, col)) for col in columns_as_lists.values())
 
-#     return text_representation
+    return text_representation
 
 # ### RAG- using Milvus Vector DB
+
+def docx_to_text(file: io.BytesIO) -> str:
+    doc = Document(file)
+    text = []
+    for para in doc.paragraphs:
+        text.append(para.text)
+    return '\n'.join(text)
+
+def table_analysis(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        text = "".join([page.extract_text() for page in pdf.pages])
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            if tables:
+                return True, text
+    return False,text
+
 
 class ZiraatBankQA:
     def __init__(self, config_path):
@@ -182,6 +201,7 @@ class ZiraatBankQA:
     def create_model(self, model_name):
         model = CrossEncoder(model_name, max_length=512)
         return model
+    
 
     def main(self, query, vector_db, model, max_token=200, collection_name= "general"):
         docs = vector_db.similarity_search_with_score(query, k=12, ef=7)
@@ -237,21 +257,19 @@ async def upload_pdfs(collection_name: str, files: List[UploadFile]):
     try:
         for file in files:
             if file.content_type == "application/pdf":
-                # pdf_content = await file.read()
+                table_content = ""
+                is_DeepSearch, text = table_analysis(file.file)
                 try:
-                    # if deepsearch :
-                    #     # Dosyayı geçici bir dosyaya kaydedin
-                    #     with open(f"/tmp/{file.filename}", "wb") as buffer:
-                    #         shutil.copyfileobj(file.file, buffer)
+                    if is_DeepSearch :
+                        # Dosyayı geçici bir dosyaya kaydedin
+                        with open(f"/tmp/{file.filename}", "wb") as buffer:
+                            shutil.copyfileobj(file.file, buffer)
 
-                    #     # İşleme fonksiyonunu çağırın
-                    #     text = process_and_extract_table(f"/tmp/{file.filename}")
-
-                    #     # Geçici dosyayı silin
-                    #     os.remove(f"/tmp/{file.filename}")
-                    # else:
-                    with pdfplumber.open(file.file) as pdf:
-                        text = "".join([page.extract_text() for page in pdf.pages])
+                        # İşleme fonksiyonunu çağırın
+                        table_content = process_and_extract_table(f"/tmp/{file.filename}")
+                        text = text + " \n " + table_content
+                        # Geçici dosyayı silin
+                        os.remove(f"/tmp/{file.filename}")
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=f"Error processing PDF file {file.filename}: {str(e)}")
 
@@ -259,12 +277,19 @@ async def upload_pdfs(collection_name: str, files: List[UploadFile]):
                 excel_content = await file.read()
                 try:
                     # Read the Excel file
-                    df = pd.read_excel(io.BytesIO(excel_content))
+                    df = pd.read_excel(io.BytesIO(excel_content),decimal='.')
                     # Convert the DataFrame to text
-                    text = str(df.to_dict(orient="records"))
+                    text = str(df.to_dict(orient="index"))
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=f"Error processing Excel file {file.filename}: {str(e)}")
-
+            
+            elif file.content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                doc_content = await file.read()
+                try:
+                    text = docx_to_text(io.BytesIO(doc_content))
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Error processing DOCX file {file.filename}: {str(e)}")
+            
             else:
                 raise HTTPException(status_code=400, detail=f"File {file.filename} is neither a PDF nor an Excel file.")
 
