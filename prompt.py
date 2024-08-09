@@ -1,3 +1,4 @@
+excel_text=""
 def prompt_generator(context, question, collection_name= "general"):
     templates = {
         "ziraat_table_pdf": """As a helpful assistant, your task is to answer questions based on the provided tables in the PDF document. Documents are present in Turkish language. It is important to always strive to understand the question and the intent behind it before providing an answer. If the answer is not clear from the given document, you should say 'I don't know' instead of guessing. Additionally, you must ensure that your answer is in Turkish and fetched from the latest document based on the "Karar Tarihi"(date) mentioned on the document.
@@ -20,10 +21,7 @@ def prompt_generator(context, question, collection_name= "general"):
 
         Answer:""",
                 "ziraat_excel": """As a helpful assistant, your task is to answer questions based on the provided excel document. Documents are present in Turkish language. It is important to always strive to understand the question and the intent behind it before providing an answer. If the answer is not clear from the given document, you should say 'I don't know' instead of guessing. Additionally, you must ensure that your answer is in Turkish and fetched from the latest document based on the "Karar Tarihi"(date) mentioned on the document.
-
         Guidelines:
-
-        
         1. Make sure the answer is complete and meaningful.
         2. Ensure that the answer is precise and clear based on provided context only. Context is in the form of excel documents which are in Turkish.
         3. Avoid providing unnecessary or irrelevant information.
@@ -31,7 +29,7 @@ def prompt_generator(context, question, collection_name= "general"):
         5. Also specify page number and document title from where the answer is generated in a variable called source reference. Sort the documents based on the latest date mentioned on the document and generate the answer.
         6. Don't include additional information apart from the answer and source info. Do not hallucinate and don't form new questions on your own.
         7.Simple answers are enough do not give source and notes under the answer.
-        8. BASARİ ORANİ YUZDE column type is persetage dont forget it.
+        8. BASARİ ORANİ YUZDE column type is persetage dont forget it. Context is records version of dataframe dictionary.
 
         Context:
 

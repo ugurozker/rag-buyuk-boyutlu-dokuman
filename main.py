@@ -1,4 +1,4 @@
-import os,io,time,shutil
+import os,io,time,shutil,copy
 import glob
 import pandas as pd
 import numpy as np
@@ -13,7 +13,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
 from ibm_watson_machine_learning.foundation_models import Model
 from ibm_watson_machine_learning.metanames import GenTextParamsMetaNames as GenParams
-from prompt import prompt_generator
+from prompt import prompt_generator,excel_text
 from sentence_transformers import SentenceTransformer
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from fastapi import FastAPI, UploadFile, File, HTTPException
@@ -59,11 +59,14 @@ def docx_to_text(file: io.BytesIO) -> str:
 
 def table_analysis(pdf_path):
     with pdfplumber.open(pdf_path) as pdf:
+        if len(pdf.pages) > 10:
+            raise HTTPException(status_code=500, detail=f"Could not retrieve PDF page count from maximum 10")
         text = "".join([page.extract_text() for page in pdf.pages])
         for page in pdf.pages:
             tables = page.extract_tables()
             if tables:
-                return True, text
+                return False, text
+
     return False,text
 
 
@@ -279,10 +282,11 @@ async def upload_pdfs(collection_name: str, files: List[UploadFile]):
                     # Read the Excel file
                     df = pd.read_excel(io.BytesIO(excel_content),decimal='.')
                     # Convert the DataFrame to text
-                    text = str(df.to_dict(orient="index"))
+                    text = str(df.to_dict(orient="records"))
                 except Exception as e:
                     raise HTTPException(status_code=400, detail=f"Error processing Excel file {file.filename}: {str(e)}")
             
+
             elif file.content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
                 doc_content = await file.read()
                 try:
@@ -338,7 +342,9 @@ async def perform_big_rag(rag_request: BigRAGRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model,rag_request.max_token, collection_name)        
+            big_ziraat_object = copy.copy(ziraat_bank_qa)
+            big_ziraat_object.model_id = 'mistralai/mixtral-8x7b-instruct-v01'
+            response, _ = big_ziraat_object.main(query, vector_db, model,rag_request.max_token, collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
@@ -506,11 +512,11 @@ class RAGRequest(BaseModel):
     query: str
     max_token: int
 
-    @validator('collection_name')
-    def check_option(cls, v):
-        if v not in utility.list_collections():
-            raise ValueError(f"Invalid option: {v}. Must be one of {utility.list_collections()}.")
-        return v
+    # @validator('collection_name')
+    # def check_option(cls, v):
+    #     if v not in utility.list_collections():
+    #         raise ValueError(f"Invalid option: {v}. Must be one of {utility.list_collections()}.")
+    #     return v
 
 class RAGResponse(BaseModel):
     collection_name: str
