@@ -318,8 +318,6 @@ async def upload_pdfs(collection_name: str, files: List[UploadFile]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"General error processing files: {str(e)}")
 
-#--------------------------------------------------------------------------------------------------
-
 class BigRAGRequest(BaseModel):
     query: str
     max_token: int
