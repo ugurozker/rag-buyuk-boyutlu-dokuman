@@ -65,7 +65,7 @@ def table_analysis(pdf_path):
         for page in pdf.pages:
             tables = page.extract_tables()
             if tables:
-                return False, text
+                return True, text
 
     return False,text
 
@@ -98,7 +98,7 @@ class ZiraatBankQA:
         return config
 
     def get_wml_creds(self):
-        api_key = "1xB9UAYxbDnLuEF1INyZn3vAF9KkvvKnTzxBq0-FUuiR"
+        api_key = "vyGwoIw0BSLZnthc5TLWUI3PVxO24miIhdGyJH_NS2ll"
         ibm_cloud_url = "https://us-south.ml.cloud.ibm.com"
         project_id = "86cc43a6-c2f0-4e3e-a6e9-426ac8cf8f7b"
         if api_key is None or ibm_cloud_url is None or project_id is None:
@@ -237,6 +237,8 @@ try:
     ziraat_bank_qa = ZiraatBankQA(config_path)
     model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
     ziraat_bank_qa.util_connection()
+    current_collection = "general"
+    vector_db = ziraat_bank_qa.get_vector_store(current_collection)
 except Exception as e:
     raise HTTPException(status_code=500, detail=f"Error performing __main__ operation: {str(e)}")
 
@@ -332,10 +334,12 @@ async def perform_big_rag(rag_request: BigRAGRequest):
     try:
         collection_name = "ziraat_big_pdf"
         query = rag_request.query
-
+        global current_collection,vector_db
         # Ensure the vector store is initialized appropriately
         try:
-            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+            if collection_name != current_collection:
+                vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+                current_collection = collection_name
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
@@ -343,7 +347,7 @@ async def perform_big_rag(rag_request: BigRAGRequest):
 
         try:
             big_ziraat_object = copy.copy(ziraat_bank_qa)
-            big_ziraat_object.model_id = 'mistralai/mixtral-8x7b-instruct-v01'
+            big_ziraat_object.model_id = 'meta-llama/llama-3-405b-instruct'
             response, _ = big_ziraat_object.main(query, vector_db, model,rag_request.max_token, collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
@@ -372,10 +376,12 @@ async def perform_revised_rag(rag_request: RevisedRequest):
     try:
         collection_name = "ziraat_revised_pdf"
         query = rag_request.query
-
+        global current_collection,vector_db
         # Ensure the vector store is initialized appropriately
         try:
-            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+            if collection_name != current_collection:
+                vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+                current_collection = collection_name
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
@@ -410,10 +416,12 @@ async def perform_refere_rag(rag_request: RefereRequest):
     try:
         collection_name = "ziraat_refere_pdf"
         query = rag_request.query
-
+        global current_collection,vector_db
         # Ensure the vector store is initialized appropriately
         try:
-            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+            if collection_name != current_collection:
+                vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+                current_collection = collection_name
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
@@ -447,10 +455,12 @@ async def perform_excel_rag(rag_request: ExcelRequest):
     try:
         collection_name = "ziraat_excel"
         query = rag_request.query
-
+        global current_collection,vector_db
         # Ensure the vector store is initialized appropriately
         try:
-            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+            if collection_name != current_collection:
+                vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+                current_collection = collection_name
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
@@ -484,10 +494,12 @@ async def perform_table_rag(rag_request: TablePDFRequest):
     try:
         collection_name = "ziraat_table_pdf"
         query = rag_request.query
-
+        global current_collection,vector_db
         # Ensure the vector store is initialized appropriately
         try:
-            vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+            if collection_name != current_collection:
+                vector_db = ziraat_bank_qa.get_vector_store(collection_name)
+                current_collection = collection_name
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
@@ -528,10 +540,12 @@ async def perform_rag(rag_request: RAGRequest):
 
     try:
         query = rag_request.query
-
+        global current_collection,vector_db
         # Ensure the vector store is initialized appropriately
         try:
-            vector_db = ziraat_bank_qa.get_vector_store(rag_request.collection_name)
+            if rag_request.collection_name != current_collection:
+                vector_db = ziraat_bank_qa.get_vector_store(rag_request.collection_name)
+                current_collection = rag_request.collection_name
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
@@ -574,9 +588,11 @@ async def perform_bulk_rag(query: str,
     collection_name: str, files: List[UploadFile]):
     if len(files) > 10:
         raise HTTPException(status_code=400, detail="You can upload a maximum of 10 files at a time.")
-
+    global current_collection,vector_db
+    # Ensure the vector store is initialized appropriately
     try:
-        vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
+        if collection_name != current_collection:
+            vector_db = ziraat_bank_qa.get_vector_store(collection_name)  # Assuming vector_db has been initialized appropriately
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing vector store: {str(e)}")
 
