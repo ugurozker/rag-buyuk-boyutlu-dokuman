@@ -98,7 +98,7 @@ class ZiraatBankQA:
         return config
 
     def get_wml_creds(self):
-        api_key = "vyGwoIw0BSLZnthc5TLWUI3PVxO24miIhdGyJH_NS2ll"
+        api_key = "empty"
         ibm_cloud_url = "https://us-south.ml.cloud.ibm.com"
         project_id = "86cc43a6-c2f0-4e3e-a6e9-426ac8cf8f7b"
         if api_key is None or ibm_cloud_url is None or project_id is None:
