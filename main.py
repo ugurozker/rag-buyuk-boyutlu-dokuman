@@ -347,7 +347,7 @@ async def perform_big_rag(rag_request: BigRAGRequest):
 
         try:
             big_ziraat_object = copy.copy(ziraat_bank_qa)
-            big_ziraat_object.model_id = 'meta-llama/llama-3-405b-instruct'
+            big_ziraat_object.model_id = 'meta-llama/llama-3-70b-instruct'
             response, _ = big_ziraat_object.main(query, vector_db, model,rag_request.max_token, collection_name)        
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
