@@ -98,7 +98,7 @@ class ZiraatBankQA:
         return config
 
     def get_wml_creds(self):
-        api_key = "empty"
+        api_key = "vyGwoIw0BSLZnthc5TLWUI3PVxO24miIhdGyJH_NS2ll"
         ibm_cloud_url = "https://us-south.ml.cloud.ibm.com"
         project_id = "86cc43a6-c2f0-4e3e-a6e9-426ac8cf8f7b"
         if api_key is None or ibm_cloud_url is None or project_id is None:
@@ -467,7 +467,9 @@ async def perform_excel_rag(rag_request: ExcelRequest):
         #model = ziraat_bank_qa.create_model('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
 
         try:
-            response, _ = ziraat_bank_qa.main(query, vector_db, model, rag_request.max_token, collection_name)
+            big_ziraat_object = copy.copy(ziraat_bank_qa)
+            big_ziraat_object.model_id = 'meta-llama/llama-3-70b-instruct'
+            response, _ = big_ziraat_object.main(query, vector_db, model,rag_request.max_token, collection_name)  
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error performing main operation: {str(e)}")
 
