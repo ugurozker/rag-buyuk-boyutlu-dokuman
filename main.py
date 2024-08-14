@@ -98,7 +98,9 @@ class ZiraatBankQA:
         return config
 
     def get_wml_creds(self):
-        #api key
+        api_key = "Gt3oq1wX0iR34JRR-RwKY7uojuuGKuuCK78itF_Fwxi9"
+        ibm_cloud_url = "https://us-south.ml.cloud.ibm.com"
+        project_id = "86cc43a6-c2f0-4e3e-a6e9-426ac8cf8f7b"
         if api_key is None or ibm_cloud_url is None or project_id is None:
             print("Ensure you copied the .env file that you created earlier into the same directory as this script")
         else:
